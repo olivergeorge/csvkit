@@ -190,6 +190,15 @@ class CSVSQL(CSVKitUtility):
             table = None
             sniff_limit = self.args.sniff_limit if self.args.sniff_limit != -1 else None
 
+            # Peek at the header row
+            reader = agate.csv.reader(f, **self.reader_kwargs)
+            try:
+                header = next(reader)
+            except StopIteration:
+                # If the file is truly empty, there's nothing to do
+                continue
+            f.seek(0)
+
             try:
                 table = agate.Table.from_csv(
                     f,
@@ -199,11 +208,10 @@ class CSVSQL(CSVKitUtility):
                     **self.reader_kwargs,
                 )
             except StopIteration:
-                # Catch cases where no table data was provided and fall through
-                # to query logic
-                continue
+                # Create an empty table with the header
+                table = agate.Table([], column_names=header)
 
-            if table:
+            if table is not None:
                 if self.connection:
                     if self.args.before_insert:
                         for query in self.args.before_insert.split(self.args.sql_delimiter):
